@@ -9,7 +9,7 @@ import { ARTICLE_STATUS, labelOf } from '@/models/catalog';
 import type { ArticleStatus } from '@/models/types';
 import { formatPrice, formatRelative } from '@/utils/format';
 import { AppText } from '@/views/components/AppText';
-import { ArticleImage } from '@/views/components/ArticleImage';
+import { ArticleGallery } from '@/views/components/ArticleGallery';
 import { BottomSheet } from '@/views/components/BottomSheet';
 import { ColorChip } from '@/views/components/ColorChip';
 import { ConfirmDialog } from '@/views/components/ConfirmDialog';
@@ -54,11 +54,10 @@ export function ArticleDetailView(c: ArticleDetailViewProps) {
     <Screen edges={[]}>
       <ScrollView contentContainerStyle={{ paddingBottom: Spacing.six + insets.bottom + 40 }}>
         <View>
-          <ArticleImage
-            uri={a.imageUrl}
+          <ArticleGallery
+            images={a.images}
             category={a.category}
             color={a.color}
-            iconSize={72}
             style={styles.image}
             dimmed={a.status === 'sold'}
           />

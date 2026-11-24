@@ -5,7 +5,7 @@ import { createPasswordHash } from './SellerModel';
 import type { Category, ColorKey, Condition, Department, Usage } from './types';
 
 export const DATABASE_NAME = 'rewear.db';
-const DATABASE_VERSION = 1;
+const DATABASE_VERSION = 2;
 
 // Demo-Zugang für den lokalen Prototyp (wird später durch Backend-Auth ersetzt).
 export const DEMO_SELLER = {
@@ -80,6 +80,22 @@ export async function migrateDbIfNeeded(db: SQLiteDatabase) {
     currentVersion = 1;
   }
 
+  if (currentVersion === 1) {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS article_images (
+        article_id TEXT NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+        position INTEGER NOT NULL,
+        uri TEXT NOT NULL,
+        PRIMARY KEY (article_id, position)
+      );
+      INSERT INTO article_images (article_id, position, uri)
+        SELECT id, 0, image_url FROM articles WHERE image_url IS NOT NULL;
+      ALTER TABLE articles DROP COLUMN image_url;
+    `);
+    await seedImages(db);
+    currentVersion = 2;
+  }
+
   await db.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
 }
 
@@ -96,9 +112,13 @@ type SeedArticle = {
   price: number;
   description: string;
   daysAgo: number;
+  images: string[];
   sold?: { price: number; daysAgo: number };
   reservedBy?: { name: string; contact: string; message: string };
 };
+
+// Beispielfotos von Wikimedia Commons (freie Lizenzen), werden nur per URL angezeigt.
+const WIKIMEDIA = 'https://upload.wikimedia.org/wikipedia/commons';
 
 const SEED_ARTICLES: SeedArticle[] = [
   {
@@ -114,6 +134,11 @@ const SEED_ARTICLES: SeedArticle[] = [
     price: 65,
     description: 'Kaum getragen, Originalkarton vorhanden.',
     daysAgo: 0,
+    images: [
+      `${WIKIMEDIA}/thumb/f/fa/Nike_Air_Max_90_women_-_white.jpg/960px-Nike_Air_Max_90_women_-_white.jpg`,
+      `${WIKIMEDIA}/thumb/b/b3/Nike_Air_Max_90.jpg/960px-Nike_Air_Max_90.jpg`,
+      `${WIKIMEDIA}/thumb/a/ae/Air_max_90.JPG/960px-Air_max_90.JPG`,
+    ],
   },
   {
     title: 'Wollmantel Camel',
@@ -128,6 +153,11 @@ const SEED_ARTICLES: SeedArticle[] = [
     price: 89,
     description: 'Zeitloser Mantel aus 80 % Wolle. Sehr warm, leicht tailliert.',
     daysAgo: 1,
+    images: [
+      `${WIKIMEDIA}/7/7f/Pierre_Balmain%2C_Swing_Coat_%281954-56%29_01.jpg`,
+      `${WIKIMEDIA}/7/78/Pierre_Balmain%2C_Swing_Coat_%281954-56%29_02.jpg`,
+      `${WIKIMEDIA}/f/fe/Pierre_Balmain%2C_Swing_Coat_%281954-56%29_03.jpg`,
+    ],
   },
   {
     title: 'Merino Rollkragenpullover',
@@ -142,6 +172,7 @@ const SEED_ARTICLES: SeedArticle[] = [
     price: 28,
     description: 'Feine Merinowolle, kratzt nicht.',
     daysAgo: 2,
+    images: [`${WIKIMEDIA}/thumb/a/a1/Grey_knitted_sweater.jpg/960px-Grey_knitted_sweater.jpg`],
   },
   {
     title: 'Leinenkleid Sommer',
@@ -156,6 +187,10 @@ const SEED_ARTICLES: SeedArticle[] = [
     price: 24,
     description: 'Luftiges Leinenkleid, knielang.',
     daysAgo: 3,
+    images: [
+      `${WIKIMEDIA}/thumb/2/29/Green_Pleated_Linen_Dress%2C_%27Irish_Moss%27_by_Sybil_Connolly_-_Full_Length_Front.jpg/960px-Green_Pleated_Linen_Dress%2C_%27Irish_Moss%27_by_Sybil_Connolly_-_Full_Length_Front.jpg`,
+      `${WIKIMEDIA}/thumb/5/5c/Green_Pleated_Linen_Dress%2C_%27Irish_Moss%27_by_Sybil_Connolly_-_Full_Length_Back.jpg/960px-Green_Pleated_Linen_Dress%2C_%27Irish_Moss%27_by_Sybil_Connolly_-_Full_Length_Back.jpg`,
+    ],
     reservedBy: {
       name: 'Anna M.',
       contact: 'anna@example.ch',
@@ -175,6 +210,11 @@ const SEED_ARTICLES: SeedArticle[] = [
     price: 70,
     description: 'Echtleder, leichte Gebrauchsspuren an der Spitze.',
     daysAgo: 4,
+    images: [
+      `${WIKIMEDIA}/0/0a/VeggieChelseaBoots.jpg`,
+      `${WIKIMEDIA}/thumb/8/8f/Chelsea_boot%2C_black.jpg/960px-Chelsea_boot%2C_black.jpg`,
+      `${WIKIMEDIA}/thumb/6/64/Person_wearing_black_Chelsea_boots_on_a_textured_pavement.jpg/960px-Person_wearing_black_Chelsea_boots_on_a_textured_pavement.jpg`,
+    ],
   },
   {
     title: 'Regenjacke Kinder',
@@ -189,6 +229,7 @@ const SEED_ARTICLES: SeedArticle[] = [
     price: 18,
     description: 'Wasserdicht, mit Kapuze und Reflektoren.',
     daysAgo: 5,
+    images: [`${WIKIMEDIA}/2/29/Yellow_Raincoat.jpg`],
   },
   {
     title: 'Laufschuhe Ultraboost',
@@ -203,6 +244,7 @@ const SEED_ARTICLES: SeedArticle[] = [
     price: 45,
     description: 'Ca. 200 km gelaufen, Sohle noch gut.',
     daysAgo: 6,
+    images: [`${WIKIMEDIA}/thumb/5/5a/Adidas_Ultra_Boost_4_running_shoes.jpeg/960px-Adidas_Ultra_Boost_4_running_shoes.jpeg`],
   },
   {
     title: 'Ledertasche Shopper',
@@ -217,6 +259,10 @@ const SEED_ARTICLES: SeedArticle[] = [
     price: 55,
     description: 'Geräumiger Shopper mit Innenfach.',
     daysAgo: 8,
+    images: [
+      `${WIKIMEDIA}/thumb/a/a3/Leather_handbag_by_Les_cuirs_d%27Agathe_%28DSC07738%29.jpg/960px-Leather_handbag_by_Les_cuirs_d%27Agathe_%28DSC07738%29.jpg`,
+      `${WIKIMEDIA}/thumb/1/13/Kelly_Bag.jpg/960px-Kelly_Bag.jpg`,
+    ],
   },
   {
     title: 'Slim Fit Jeans',
@@ -231,6 +277,10 @@ const SEED_ARTICLES: SeedArticle[] = [
     price: 32,
     description: '511 Slim, W32/L32.',
     daysAgo: 10,
+    images: [
+      `${WIKIMEDIA}/0/02/Blue_Jeans_from_the_rear.jpg`,
+      `${WIKIMEDIA}/5/54/High_waisted_jeans_1435042736.jpg`,
+    ],
   },
   {
     title: 'Strickmütze & Schal Set',
@@ -245,6 +295,10 @@ const SEED_ARTICLES: SeedArticle[] = [
     price: 15,
     description: 'Ungetragen, Geschenk in falscher Grösse.',
     daysAgo: 12,
+    images: [
+      `${WIKIMEDIA}/thumb/4/4a/Beanie_-_Knit_Cap_%2851013511676%29.jpg/960px-Beanie_-_Knit_Cap_%2851013511676%29.jpg`,
+      `${WIKIMEDIA}/thumb/b/b6/Blue_knit-cap_beanie_by_RobertLender.jpeg/960px-Blue_knit-cap_beanie_by_RobertLender.jpeg`,
+    ],
   },
   {
     title: 'Daunenjacke Puffer',
@@ -259,6 +313,7 @@ const SEED_ARTICLES: SeedArticle[] = [
     price: 120,
     description: 'Sehr warm, kleiner Fleck am Ärmel.',
     daysAgo: 40,
+    images: [`${WIKIMEDIA}/thumb/e/e1/Men%27s_black_PVC_down_jacket_02.jpg/960px-Men%27s_black_PVC_down_jacket_02.jpg`],
     sold: { price: 110, daysAgo: 20 },
   },
   {
@@ -274,6 +329,11 @@ const SEED_ARTICLES: SeedArticle[] = [
     price: 35,
     description: 'Fussbett gut eingelaufen.',
     daysAgo: 120,
+    images: [
+      `${WIKIMEDIA}/thumb/a/a2/Birkenstock_Sandals_CNE_01.jpg/960px-Birkenstock_Sandals_CNE_01.jpg`,
+      `${WIKIMEDIA}/thumb/3/37/Birkenstock_Sandals_CNE_02.jpg/960px-Birkenstock_Sandals_CNE_02.jpg`,
+      `${WIKIMEDIA}/thumb/b/bc/Birkenstock_Sandals_CNE_03.jpg/960px-Birkenstock_Sandals_CNE_03.jpg`,
+    ],
     sold: { price: 30, daysAgo: 95 },
   },
   {
@@ -289,6 +349,10 @@ const SEED_ARTICLES: SeedArticle[] = [
     price: 20,
     description: 'Länge 95 cm.',
     daysAgo: 300,
+    images: [
+      `${WIKIMEDIA}/4/46/Belt_%28clothing%29.jpg`,
+      `${WIKIMEDIA}/thumb/9/91/Belt-clothing.jpg/960px-Belt-clothing.jpg`,
+    ],
     sold: { price: 20, daysAgo: 250 },
   },
 ];
@@ -350,6 +414,27 @@ async function seed(db: SQLiteDatabase) {
         a.reservedBy.message,
         now
       );
+    }
+  }
+}
+
+/** Hängt die Beispielfotos an die Demo-Artikel (auch bei bestehenden Installationen). */
+async function seedImages(db: SQLiteDatabase) {
+  for (const a of SEED_ARTICLES) {
+    const rows = await db.getAllAsync<{ id: string }>(
+      `SELECT id FROM articles
+       WHERE title = ? AND NOT EXISTS (SELECT 1 FROM article_images i WHERE i.article_id = articles.id)`,
+      a.title
+    );
+    for (const { id } of rows) {
+      for (const [position, uri] of a.images.entries()) {
+        await db.runAsync(
+          'INSERT INTO article_images (article_id, position, uri) VALUES (?, ?, ?)',
+          id,
+          position,
+          uri
+        );
+      }
     }
   }
 }

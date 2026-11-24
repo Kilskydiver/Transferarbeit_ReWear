@@ -48,7 +48,7 @@ export function ProductListItem({
         pressed && { opacity: 0.85 },
       ]}>
       <ArticleImage
-        uri={article.imageUrl}
+        uri={article.images[0] ?? null}
         category={article.category}
         color={article.color}
         iconSize={28}

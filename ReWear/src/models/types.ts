@@ -33,7 +33,8 @@ export interface Article {
   condition: Condition;
   price: number;
   description: string | null;
-  imageUrl: string | null;
+  /** Fotos in Anzeigereihenfolge, das erste ist das Titelbild. */
+  images: string[];
   status: ArticleStatus;
   soldPrice: number | null;
   soldAt: string | null;

@@ -31,7 +31,7 @@ export function ProductTile({ article, isFavorite, onPress, onToggleFavorite, un
       style={({ pressed }) => [styles.tile, pressed && styles.pressed]}>
       <View style={[styles.imageWrap, Shadow]}>
         <ArticleImage
-          uri={article.imageUrl}
+          uri={article.images[0] ?? null}
           category={article.category}
           color={article.color}
           style={[styles.image, { borderColor: theme.border }]}

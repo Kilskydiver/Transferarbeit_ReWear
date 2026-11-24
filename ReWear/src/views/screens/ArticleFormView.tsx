@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Radius, Spacing } from '@/constants/theme';
-import type { useArticleFormController } from '@/controllers/useArticleFormController';
+import { MAX_IMAGES, type useArticleFormController } from '@/controllers/useArticleFormController';
 import { useTheme } from '@/hooks/use-theme';
 import { CATEGORIES, COLORS, CONDITIONS, DEPARTMENTS, USAGES } from '@/models/catalog';
 import { AppText } from '@/views/components/AppText';
@@ -49,43 +49,70 @@ export function ArticleFormView(c: ArticleFormViewProps) {
             />
           )}
 
-          {/* Foto */}
+          {/* Fotos */}
           <View style={styles.section}>
             <AppText variant="small" style={styles.label}>
-              Foto
+              Fotos ({c.values.images.length}/{MAX_IMAGES})
             </AppText>
-            <View style={[styles.photo, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-              {c.values.imageUrl ? (
-                <>
-                  <Image
-                    source={{ uri: c.values.imageUrl }}
-                    style={StyleSheet.absoluteFill}
-                    contentFit="cover"
-                    accessibilityLabel="Vorschau des Artikelfotos"
-                  />
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Foto entfernen"
-                    onPress={c.removeImage}
-                    style={[styles.removePhoto, { backgroundColor: theme.surface }]}>
-                    <Icon name="close" size={14} />
-                  </Pressable>
-                </>
-              ) : (
+            {c.values.images.length > 0 ? (
+              <View style={styles.photoGrid}>
+                {c.values.images.map((uri, index) => (
+                  <View
+                    key={`${uri}-${index}`}
+                    style={[styles.thumb, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
+                    <Image
+                      source={{ uri }}
+                      style={StyleSheet.absoluteFill}
+                      contentFit="cover"
+                      accessibilityLabel={`Artikelfoto ${index + 1}`}
+                    />
+                    {index === 0 && (
+                      <View style={[styles.coverBadge, { backgroundColor: theme.surface }]}>
+                        <AppText variant="small" style={styles.label}>
+                          Titelbild
+                        </AppText>
+                      </View>
+                    )}
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Foto ${index + 1} entfernen`}
+                      onPress={() => c.removeImage(index)}
+                      style={[styles.removePhoto, { backgroundColor: theme.surface }]}>
+                      <Icon name="close" size={14} />
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={[styles.photo, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
                 <View style={styles.photoEmpty}>
                   <Icon name="camera" size={34} color={theme.textSecondary} />
                   <AppText variant="small" tone="secondary" style={styles.center}>
-                    Noch kein Foto. Ohne Foto wird ein Platzhalter angezeigt.
+                    Noch keine Fotos. Ohne Foto wird ein Platzhalter angezeigt.
                   </AppText>
                 </View>
-              )}
-            </View>
+              </View>
+            )}
             <View style={styles.row}>
               <View style={styles.flex}>
-                <PrimaryButton label="Kamera" icon="camera" variant="secondary" compact onPress={() => c.pickImage('camera')} />
+                <PrimaryButton
+                  label="Kamera"
+                  icon="camera"
+                  variant="secondary"
+                  compact
+                  disabled={!c.canAddImage}
+                  onPress={() => c.pickImage('camera')}
+                />
               </View>
               <View style={styles.flex}>
-                <PrimaryButton label="Galerie" icon="photo" variant="secondary" compact onPress={() => c.pickImage('library')} />
+                <PrimaryButton
+                  label="Galerie"
+                  icon="photo"
+                  variant="secondary"
+                  compact
+                  disabled={!c.canAddImage}
+                  onPress={() => c.pickImage('library')}
+                />
               </View>
             </View>
             {c.permissionDenied && (
@@ -225,6 +252,22 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   photoEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two, padding: Spacing.four },
+  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  thumb: {
+    width: '31.5%',
+    aspectRatio: 4 / 5,
+    borderRadius: Radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+  },
+  coverBadge: {
+    position: 'absolute',
+    left: Spacing.one,
+    bottom: Spacing.one,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: 2,
+    borderRadius: Radius.sm,
+  },
   removePhoto: {
     position: 'absolute',
     top: Spacing.two,

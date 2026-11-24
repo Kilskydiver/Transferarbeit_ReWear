@@ -31,8 +31,10 @@ const EMPTY_FORM: ArticleFormValues = {
   usage: [],
   price: '',
   description: '',
-  imageUrl: null,
+  images: [],
 };
+
+export const MAX_IMAGES = 6;
 
 type TextField = 'title' | 'brand' | 'price' | 'description';
 
@@ -68,7 +70,7 @@ export function useArticleFormController(articleId?: string) {
           usage: a.usage,
           price: a.price.toFixed(2),
           description: a.description ?? '',
-          imageUrl: a.imageUrl,
+          images: a.images,
         });
       })
       .catch((e) => setSubmitError(errorMessage(e)))
@@ -104,6 +106,8 @@ export function useArticleFormController(articleId?: string) {
 
   const pickImage = async (source: 'camera' | 'library') => {
     setPermissionDenied(null);
+    const remaining = MAX_IMAGES - values.images.length;
+    if (remaining <= 0) return;
     try {
       const permission =
         source === 'camera'
@@ -113,17 +117,24 @@ export function useArticleFormController(articleId?: string) {
         setPermissionDenied(source);
         return;
       }
-      const options: ImagePicker.ImagePickerOptions = {
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [4, 5],
-        quality: 0.7,
-      };
       const result =
         source === 'camera'
-          ? await ImagePicker.launchCameraAsync(options)
-          : await ImagePicker.launchImageLibraryAsync(options);
-      if (!result.canceled && result.assets[0]) update({ imageUrl: result.assets[0].uri });
+          ? await ImagePicker.launchCameraAsync({
+              mediaTypes: ['images'],
+              allowsEditing: true,
+              aspect: [4, 5],
+              quality: 0.7,
+            })
+          : await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ['images'],
+              allowsMultipleSelection: true,
+              selectionLimit: remaining,
+              quality: 0.7,
+            });
+      if (!result.canceled) {
+        const picked = result.assets.map((asset) => asset.uri);
+        setValues((v) => ({ ...v, images: [...v.images, ...picked].slice(0, MAX_IMAGES) }));
+      }
     } catch (e) {
       setSubmitError(errorMessage(e, 'Das Foto konnte nicht geladen werden.'));
     }
@@ -143,7 +154,8 @@ export function useArticleFormController(articleId?: string) {
     setSaving(true);
     setSubmitError(null);
     try {
-      const imageUrl = values.imageUrl ? await persistImage(values.imageUrl) : null;
+      const images: string[] = [];
+      for (const uri of values.images) images.push(await persistImage(uri));
       const input: ArticleInput = {
         title: values.title.trim(),
         brand: values.brand.trim() || null,
@@ -156,7 +168,7 @@ export function useArticleFormController(articleId?: string) {
         usage: values.usage,
         price: parsePrice(values.price) as number,
         description: values.description.trim() || null,
-        imageUrl,
+        images,
       };
       if (articleId) {
         await ArticleModel.update(db, seller.id, articleId, input);
@@ -199,7 +211,8 @@ export function useArticleFormController(articleId?: string) {
           : [...values.usage, usage],
       }),
     pickImage,
-    removeImage: () => update({ imageUrl: null }),
+    canAddImage: values.images.length < MAX_IMAGES,
+    removeImage: (index: number) => update({ images: values.images.filter((_, i) => i !== index) }),
     openSettings: () => Linking.openSettings(),
     submit,
     login: () => router.push('/login'),

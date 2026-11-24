@@ -26,17 +26,20 @@ type ArticleRow = {
   condition: Article['condition'];
   price: number;
   description: string | null;
-  image_url: string | null;
   status: ArticleStatus;
   sold_price: number | null;
   sold_at: string | null;
   created_at: string;
   updated_at: string;
   usage_list: string | null;
+  images_json: string;
 };
 
+// JSON statt GROUP_CONCAT, weil Data-URLs Kommas enthalten.
 const SELECT_ARTICLE = `
-  SELECT a.*, (SELECT GROUP_CONCAT(u.usage) FROM article_usages u WHERE u.article_id = a.id) AS usage_list
+  SELECT a.*, (SELECT GROUP_CONCAT(u.usage) FROM article_usages u WHERE u.article_id = a.id) AS usage_list,
+    (SELECT json_group_array(uri) FROM
+      (SELECT i.uri FROM article_images i WHERE i.article_id = a.id ORDER BY i.position)) AS images_json
   FROM articles a`;
 
 function toArticle(row: ArticleRow): Article {
@@ -53,7 +56,7 @@ function toArticle(row: ArticleRow): Article {
     condition: row.condition,
     price: row.price,
     description: row.description,
-    imageUrl: row.image_url,
+    images: JSON.parse(row.images_json) as string[],
     status: row.status,
     soldPrice: row.sold_price,
     soldAt: row.sold_at,
@@ -243,6 +246,18 @@ async function writeUsages(db: SQLiteDatabase, articleId: string, usages: Usage[
   }
 }
 
+async function writeImages(db: SQLiteDatabase, articleId: string, images: string[]) {
+  await db.runAsync('DELETE FROM article_images WHERE article_id = ?', articleId);
+  for (const [position, uri] of images.entries()) {
+    await db.runAsync(
+      'INSERT INTO article_images (article_id, position, uri) VALUES (?, ?, ?)',
+      articleId,
+      position,
+      uri
+    );
+  }
+}
+
 export async function create(db: SQLiteDatabase, sellerId: string, input: ArticleInput): Promise<string> {
   await requireSeller(db, sellerId);
   const id = Crypto.randomUUID();
@@ -250,8 +265,8 @@ export async function create(db: SQLiteDatabase, sellerId: string, input: Articl
   await db.withTransactionAsync(async () => {
     await db.runAsync(
       `INSERT INTO articles (id, title, department, category, subcategory, size, color, brand,
-         condition, price, description, image_url, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', ?, ?)`,
+         condition, price, description, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', ?, ?)`,
       id,
       input.title,
       input.department,
@@ -263,11 +278,11 @@ export async function create(db: SQLiteDatabase, sellerId: string, input: Articl
       input.condition,
       input.price,
       input.description,
-      input.imageUrl,
       now,
       now
     );
     await writeUsages(db, id, input.usage);
+    await writeImages(db, id, input.images);
   });
   return id;
 }
@@ -283,7 +298,7 @@ export async function update(
   await db.withTransactionAsync(async () => {
     await db.runAsync(
       `UPDATE articles SET title = ?, department = ?, category = ?, subcategory = ?, size = ?, color = ?,
-         brand = ?, condition = ?, price = ?, description = ?, image_url = ?, updated_at = ?
+         brand = ?, condition = ?, price = ?, description = ?, updated_at = ?
        WHERE id = ?`,
       input.title,
       input.department,
@@ -295,15 +310,13 @@ export async function update(
       input.condition,
       input.price,
       input.description,
-      input.imageUrl,
       new Date().toISOString(),
       id
     );
     await writeUsages(db, id, input.usage);
+    await writeImages(db, id, input.images);
   });
-  if (previous?.imageUrl && previous.imageUrl !== input.imageUrl) {
-    deleteImage(previous.imageUrl);
-  }
+  previous?.images.filter((uri) => !input.images.includes(uri)).forEach(deleteImage);
 }
 
 export async function updateStatus(
@@ -338,5 +351,5 @@ export async function remove(db: SQLiteDatabase, sellerId: string, id: string): 
   await requireSeller(db, sellerId);
   const article = await getById(db, id);
   await db.runAsync('DELETE FROM articles WHERE id = ?', id);
-  if (article?.imageUrl) deleteImage(article.imageUrl);
+  article?.images.forEach(deleteImage);
 }

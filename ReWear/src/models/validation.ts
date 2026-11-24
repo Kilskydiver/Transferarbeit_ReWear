@@ -15,7 +15,7 @@ export interface ArticleFormValues {
   usage: Usage[];
   price: string;
   description: string;
-  imageUrl: string | null;
+  images: string[];
 }
 
 export function parsePrice(value: string): number | null {

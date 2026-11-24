@@ -38,7 +38,9 @@ function toReservation(row: ReservationRow): ReservationWithArticle {
 
 const SELECT_RESERVATION = `
   SELECT r.*, a.title AS article_title, a.price AS article_price,
-         a.image_url AS article_image_url, a.status AS article_status
+         (SELECT i.uri FROM article_images i WHERE i.article_id = a.id ORDER BY i.position LIMIT 1)
+           AS article_image_url,
+         a.status AS article_status
   FROM reservations r JOIN articles a ON a.id = r.article_id`;
 
 /** Käufer: Reservation senden. Reserviert nur, wenn der Artikel noch verfügbar ist. */

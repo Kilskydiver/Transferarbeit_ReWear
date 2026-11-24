@@ -7,8 +7,8 @@ import { Platform } from 'react-native';
  * bzw. Hintergrundentfernung), damit der Rest der App nicht angepasst werden muss.
  */
 export async function persistImage(uri: string): Promise<string> {
-  // Auf dem Web liefert der Image Picker bereits eine Data-URL, die direkt gespeichert werden kann.
-  if (Platform.OS === 'web') return uri;
+  // Data-URLs (Web) und entfernte URLs (Beispielfotos) werden unverändert gespeichert.
+  if (Platform.OS === 'web' || /^https?:\/\//.test(uri)) return uri;
 
   const directory = new Directory(Paths.document, 'article-images');
   directory.create({ idempotent: true, intermediates: true });
